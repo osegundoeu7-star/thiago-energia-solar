@@ -1,0 +1,8 @@
+{
+  "name": "thiago-energia-solar",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "dependencies": { "@react-three/drei": "^10.7.6", "@react-three/fiber": "^9.3.0", "gsap": "^3.13.0", "next": "^15.5.2", "react": "^19.1.1", "react-dom": "^19.1.1", "three": "^0.180.0" },
+  "devDependencies": { "@types/node": "^22.18.0", "@types/react": "^19.1.10", "@types/react-dom": "^19.1.7", "@types/three": "^0.180.0", "typescript": "^5.9.2" }
+}
