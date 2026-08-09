@@ -733,9 +733,6 @@ select {
 .project-image {
   position: relative;
   overflow: hidden;
-  min-width: 0;
-  min-height: 410px;
-
   background: linear-gradient(
     135deg,
     #334653,
@@ -747,29 +744,21 @@ select {
   align-items: center;
   justify-content: center;
 
-  padding: 20px;
+  min-height: 410px;
+  padding: 35px;
 }
-
 /* Imagem do projeto */
 
 .project-image img {
   display: block;
 
-  /*
-    A imagem nunca passa do tamanho
-    disponível no card.
-  */
-  max-width: 100%;
-  max-height: 100%;
-
-  /*
-    Mantém a proporção original.
-  */
   width: auto;
   height: auto;
 
+  max-width: 82%;
+  max-height: 82%;
+
   object-fit: contain;
-  object-position: center;
 
   position: relative;
   z-index: 1;
@@ -783,9 +772,10 @@ select {
   inset: 12%;
   border: 1px solid #ffffff33;
   transform: skewY(-12deg);
-  z-index: 2;
   pointer-events: none;
+  z-index: 2;
 }
+
 
 /* Fundos diferentes por categoria */
 
@@ -820,6 +810,7 @@ select {
   letter-spacing: -0.12em;
   opacity: 0.17;
 }
+
 
 /* Informações do projeto */
 
@@ -1278,18 +1269,19 @@ footer p {
   ========================= */
 
   .project-display {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: 1fr;
+    }
 
-  .project-image {
+    .project-image {
     min-height: 250px;
-    padding: 15px;
-  }
+    height: 250px;
+    padding: 25px;
+    }
 
-  .project-image img {
-    max-width: 100%;
-    max-height: 100%;
-  }
+    .project-image img {
+    max-width: 82%;
+    max-height: 82%;
+    }
 
   .project-info {
     padding: 29px;
