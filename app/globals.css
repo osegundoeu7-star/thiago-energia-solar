@@ -773,7 +773,7 @@ select {
   inset: 30px 16%;
   z-index: 3;
   overflow: hidden;
-  border-radius: 20%;
+  border-radius: 10%;
   filter: drop-shadow(0 22px 26px rgba(2, 8, 11, .38));
 }
 
