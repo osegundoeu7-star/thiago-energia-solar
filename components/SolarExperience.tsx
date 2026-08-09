@@ -38,4 +38,3 @@ export default function SolarExperience() {
   <footer><a className="brand" href="#inicio"><strong>THIAGO</strong><span>ENERGIA SOLAR</span></a><div><a href="#solucoes">Soluções</a><a href="#projetos">Projetos</a><a href="#faq">FAQ</a><a href="mailto:contato@thiagoenergia.com">Contato</a></div><p>© 2026 Thiago Energia Solar. As informações e estimativas apresentadas podem variar conforme o consumo, o imóvel e o dimensionamento do sistema.</p></footer>
  </main>
 }
-a
