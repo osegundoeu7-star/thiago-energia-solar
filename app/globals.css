@@ -772,6 +772,8 @@ select {
   position: absolute;
   inset: 30px 16%;
   z-index: 3;
+  overflow: hidden;
+  border-radius: 20%;
   filter: drop-shadow(0 22px 26px rgba(2, 8, 11, .38));
 }
 
@@ -779,6 +781,7 @@ select {
 .project-photo {
   object-fit: contain;
   object-position: center;
+  border-radius: inherit;
 }
 
 /* Moldura decorativa */
@@ -817,17 +820,6 @@ select {
 /*
   Texto TES fica atrás da imagem.
 */
-
-.project-image span {
-  position: absolute;
-  z-index: 2;
-
-  font-size: clamp(60px, 12vw, 180px);
-  font-weight: 800;
-  letter-spacing: -0.12em;
-  opacity: 0.17;
-}
-
 
 /* Informações do projeto */
 
