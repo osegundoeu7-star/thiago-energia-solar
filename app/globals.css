@@ -743,11 +743,36 @@ select {
   min-width: 0;
   height: 100%;
 }
+
+/* A própria foto preenche o card, suavizada para preservar o foco na imagem frontal. */
+.project-backdrop {
+  position: absolute;
+  inset: -22px;
+  z-index: 0;
+  overflow: hidden;
+  opacity: .62;
+}
+
+.project-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(7, 16, 24, .78), rgba(12, 23, 29, .25) 58%, rgba(206, 160, 42, .34));
+}
+
+.project-backdrop-photo {
+  object-fit: cover;
+  object-position: center;
+  filter: blur(18px) saturate(.78) brightness(.72);
+  transform: scale(1.12);
+}
+
 /* Área de mídia com dimensões definidas: a foto nunca altera o card. */
 .project-media {
   position: absolute;
-  inset: 36px;
-  z-index: 1;
+  inset: 30px 16%;
+  z-index: 3;
+  filter: drop-shadow(0 22px 26px rgba(2, 8, 11, .38));
 }
 
 /* A imagem inteira é preservada — sem corte — em desktop e mobile. */
@@ -765,7 +790,7 @@ select {
   border: 1px solid #ffffff33;
   transform: skewY(-12deg);
   pointer-events: none;
-  z-index: 2;
+  z-index: 4;
 }
 
 
@@ -795,7 +820,7 @@ select {
 
 .project-image span {
   position: absolute;
-  z-index: 0;
+  z-index: 2;
 
   font-size: clamp(60px, 12vw, 180px);
   font-weight: 800;
@@ -1271,7 +1296,12 @@ footer p {
     }
 
     .project-media {
-    inset: 22px;
+    inset: 20px 12%;
+    }
+
+    .project-backdrop {
+      inset: -16px;
+      opacity: .58;
     }
 
   .project-info {
