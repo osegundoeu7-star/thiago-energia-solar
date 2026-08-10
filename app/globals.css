@@ -589,6 +589,104 @@ label {
 .tariff-source b { font-size: 13px; }
 
 /* =========================
+   PROJECT SHOWCASE
+========================= */
+
+.projects-showcase {
+  background: #ecebe5;
+  color: #111719;
+}
+
+.projects-heading {
+  display: grid;
+  grid-template-columns: 1.25fr .75fr;
+  gap: 8vw;
+  align-items: end;
+  margin-bottom: 65px;
+}
+
+.projects-heading .eyebrow { grid-column: 1 / -1; color: #657075; margin-bottom: -20px; }
+.projects-heading h2 { font-size: clamp(44px, 5.6vw, 86px); }
+.projects-heading h2 em { font-size: inherit; }
+.projects-heading > p:not(.eyebrow) { color: #5e696c; font-size: 13px; line-height: 1.8; max-width: 460px; }
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.project-card {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #d3d5cf;
+  overflow: hidden;
+  transition: transform .35s, box-shadow .35s;
+}
+
+.project-card:hover {
+  transform: translateY(-7px);
+  box-shadow: 0 24px 55px #25303824;
+}
+
+.project-card-image {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #172129;
+}
+
+.project-card-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0000 50%, #071017b8);
+}
+
+.project-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .7s ease;
+}
+
+.project-card:nth-child(4) img,
+.project-card:nth-child(5) img,
+.project-card:nth-child(6) img { transform: scale(1.08); }
+.project-card:hover img { transform: scale(1.06); }
+.project-card:nth-child(n+4):hover img { transform: scale(1.14); }
+
+.project-card-image span,
+.project-card-image small {
+  position: absolute;
+  z-index: 2;
+  bottom: 17px;
+  color: #fff;
+  font-family: 'DM Mono';
+}
+
+.project-card-image span { left: 18px; font-size: 10px; color: var(--gold); }
+.project-card-image small { right: 18px; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+
+.project-card-copy { padding: 25px; }
+.project-card-copy h3 { margin: 0 0 11px; font-size: 20px; letter-spacing: -.035em; }
+.project-card-copy p { min-height: 58px; margin: 0 0 23px; color: #687275; font-size: 11px; line-height: 1.7; }
+.project-card-copy a { color: #273136; font: 500 10px 'DM Mono'; }
+.project-card-copy a b { color: #a87809; margin-left: 8px; }
+
+.projects-cta {
+  margin-top: 45px;
+  padding-top: 27px;
+  border-top: 1px solid #c9ccc6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+}
+
+.projects-cta p { margin: 0; font-size: 15px; font-weight: 600; }
+
+/* =========================
    COVERAGE & TRUST
 ========================= */
 
@@ -1412,6 +1510,17 @@ footer p {
   .benefits {
     padding: 11vh 7vw;
   }
+
+  .projects-heading {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 42px;
+  }
+
+  .projects-heading .eyebrow { grid-column: auto; margin-bottom: 0; }
+  .projects-grid { grid-template-columns: 1fr; gap: 15px; }
+  .project-card-copy p { min-height: auto; }
+  .projects-cta { align-items: flex-start; flex-direction: column; }
 
   .coverage-states article { grid-template-columns: 70px 1fr; }
 
