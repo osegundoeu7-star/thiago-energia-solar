@@ -257,14 +257,51 @@ h2 em {
 .scene-wrap canvas {
   position: relative;
   z-index: 1;
+  cursor: grab;
+  touch-action: pan-y !important;
+  user-select: none;
+}
+
+.scene-wrap canvas:active { cursor: grabbing; }
+
+.scene-interaction-hint {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 13%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid #f8cf6f40;
+  border-radius: 30px;
+  background: #091015a8;
+  color: #dce3e1;
+  font: 500 9px 'DM Mono';
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  animation: interaction-hint 2.4s ease-in-out infinite;
+}
+
+.scene-interaction-hint span {
+  color: var(--gold);
+  font-size: 14px;
+  margin-right: 6px;
 }
 
 @keyframes sun-ready-pulse {
   50% { transform: scale(1.08); opacity: .9; }
 }
 
+@keyframes interaction-hint {
+  50% { transform: translateX(-50%) translateY(-3px); border-color: #f8cf6f70; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .scene-wrap::before { animation: none; }
+  .scene-wrap::before,
+  .scene-interaction-hint { animation: none; }
 }
 
 .scroll-hint {
@@ -1468,6 +1505,12 @@ footer p {
     right: -29vw;
     top: 45%;
     opacity: 0.73;
+  }
+
+  .scene-interaction-hint {
+    bottom: 8%;
+    padding: 7px 10px;
+    font-size: 8px;
   }
 
   .section {
