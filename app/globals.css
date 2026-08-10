@@ -235,6 +235,36 @@ h2 em {
   right: 1vw;
   top: 15%;
   z-index: 1;
+  contain: layout paint;
+  will-change: transform;
+}
+
+.scene-wrap::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 24%;
+  aspect-ratio: 1;
+  left: 38%;
+  top: 38%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd66f 0 20%, #d7941b 45%, transparent 72%);
+  filter: blur(12px);
+  opacity: .72;
+  animation: sun-ready-pulse 3.2s ease-in-out infinite;
+}
+
+.scene-wrap canvas {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sun-ready-pulse {
+  50% { transform: scale(1.08); opacity: .9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-wrap::before { animation: none; }
 }
 
 .scroll-hint {
