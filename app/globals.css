@@ -1472,6 +1472,57 @@ footer p {
 }
 
 /* =========================
+   SOLAR JOURNEY (cena 3D contínua)
+========================= */
+.solar-journey {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.solar-journey canvas { display: block; }
+
+main > * { position: relative; z-index: 1; }
+
+.hero {
+  background: radial-gradient(
+    circle at 73% 48%,
+    #28404c66 0,
+    #121c22b8 23%,
+    #090d10f2 60%
+  );
+}
+.simulator { background: #151e25d1; }
+.coverage { background: #0d1419d9; }
+.lead-section {
+  background: radial-gradient(
+    circle at 20% 50%,
+    #243945d9 0,
+    #11191fe0 43%,
+    #090d10f0 80%
+  );
+}
+
+.solar-journey .scene-interaction-hint {
+  position: fixed;
+  left: 24px;
+  right: auto;
+  bottom: 22px;
+  transform: none;
+  z-index: 2;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .solar-journey .scene-interaction-hint {
+    right: 14px;
+    bottom: 14px;
+    font-size: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .solar-journey .scene-interaction-hint { animation: none; }
+}
+/* =========================
    MOBILE
 ========================= */
 
