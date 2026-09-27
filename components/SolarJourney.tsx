@@ -217,14 +217,15 @@ function textures(): TexSet {
     }
   })
 
-  /* --- módulo fotovoltaico PREMIUM (estilo mono PERC all-black) ---
-     células meio-cortadas com canto arredondado + variação de tom por
-     célula, fingers prateados, 3 busbars e etiqueta técnica no canto.
+  /* --- módulo fotovoltaico (referência: preview real do Tripo) ---
+     grade DENSA de células inteiras azul-preto (12x8) com linhas
+     prateadas CLARAS entre elas, reflexo de vidro diagonal, fingers
+     finos, 2 busbars sutis e etiqueta técnica no canto.
      Mesmo custo: continua sendo 1 textura de 512x400, zero peso extra. */
-  const cellW = 42, cellH = 50, cols = 6, rows = 4
+  const cellW = 38, cellH = 42, cols = 12, rows = 8
   const panel = makeTex(512, 400, (c, w, h) => {
-    /* backsheet preto (all-black) */
-    c.fillStyle = '#07090c'
+    /* backsheet escuro em volta do módulo */
+    c.fillStyle = '#08090d'
     c.fillRect(0, 0, w, h)
     const ox = (w - cols * cellW) / 2
     const oy = (h - rows * cellH) / 2
@@ -232,41 +233,48 @@ function textures(): TexSet {
       for (let col = 0; col < cols; col++) {
         const x = ox + col * cellW
         const y = oy + r * cellH
-        const shade = 0.88 + Math.random() * 0.24 /* cada célula reflete diferente */
-        /* célula meio-cortada: 2 metades com fenda fina */
-        for (let half = 0; half < 2; half++) {
-          const hx = x + 2 + half * ((cellW - 4) / 2 + 1.5)
-          const hw = (cellW - 4) / 2 - 1.5
-          const g = c.createLinearGradient(hx, y, hx + hw, y + cellH)
-          g.addColorStop(0, `rgb(${Math.round(13 * shade)},${Math.round(26 * shade)},${Math.round(46 * shade)})`)
-          g.addColorStop(0.5, `rgb(${Math.round(9 * shade)},${Math.round(19 * shade)},${Math.round(36 * shade)})`)
-          g.addColorStop(1, `rgb(${Math.round(22 * shade)},${Math.round(43 * shade)},${Math.round(74 * shade)})`)
-          c.fillStyle = g
-          roundedRect(c, hx, y + 2, hw, cellH - 4, 3)
-          c.fill()
-          /* fingers: trilhas finas prateadas que pegam a luz */
-          c.strokeStyle = 'rgba(178,198,224,0.16)'
-          c.lineWidth = 1
-          for (let f = 1; f < 9; f++) {
-            const fx = hx + (hw / 9) * f
-            c.beginPath()
-            c.moveTo(fx, y + 3)
-            c.lineTo(fx, y + cellH - 3)
-            c.stroke()
-          }
-        }
-        /* contorno sutil da célula */
-        c.strokeStyle = 'rgba(120,145,175,0.28)'
+        const shade = 0.85 + Math.random() * 0.3 /* cada célula reflete diferente */
+        /* célula inteira azul-preto com brilho de vidro na diagonal */
+        const g = c.createLinearGradient(x, y, x + cellW, y + cellH)
+        g.addColorStop(0, `rgb(${Math.round(10 * shade)},${Math.round(18 * shade)},${Math.round(32 * shade)})`)
+        g.addColorStop(0.42, `rgb(${Math.round(16 * shade)},${Math.round(30 * shade)},${Math.round(54 * shade)})`)
+        g.addColorStop(0.52, `rgb(${Math.round(30 * shade)},${Math.round(52 * shade)},${Math.round(88 * shade)})`)
+        g.addColorStop(1, `rgb(${Math.round(8 * shade)},${Math.round(15 * shade)},${Math.round(28 * shade)})`)
+        c.fillStyle = g
+        c.fillRect(x, y, cellW, cellH)
+        /* fingers finos prateados dentro da célula */
+        c.strokeStyle = 'rgba(190,206,226,0.13)'
         c.lineWidth = 1
-        roundedRect(c, x + 2, y + 2, cellW - 4, cellH - 4, 3)
-        c.stroke()
+        for (let f = 1; f < 6; f++) {
+          const fx = x + (cellW / 6) * f
+          c.beginPath()
+          c.moveTo(fx, y + 1)
+          c.lineTo(fx, y + cellH - 1)
+          c.stroke()
+        }
+        /* linha prateada da grade (o traço claro do painel real) */
+        c.strokeStyle = 'rgba(205,216,228,0.5)'
+        c.lineWidth = 1.4
+        c.strokeRect(x + 0.7, y + 0.7, cellW - 1.4, cellH - 1.4)
       }
     }
-    /* 3 busbars prateadas verticais atravessando o módulo */
-    c.fillStyle = 'rgba(206,218,232,0.9)'
-    for (let b = 1; b <= 3; b++) {
-      const x = ox + (cols * cellW * b) / 4
-      c.fillRect(x - 1.5, oy + 2, 3, rows * cellH - 4)
+    /* brilho de vidro cruzando o módulo na diagonal */
+    c.save()
+    c.globalAlpha = 0.05
+    c.fillStyle = '#bcd8f0'
+    c.beginPath()
+    c.moveTo(ox, oy + rows * cellH * 0.22)
+    c.lineTo(ox + cols * cellW, oy)
+    c.lineTo(ox + cols * cellW, oy + rows * cellH * 0.16)
+    c.lineTo(ox, oy + rows * cellH * 0.4)
+    c.closePath()
+    c.fill()
+    c.restore()
+    /* 2 busbars sutis atravessando o módulo */
+    c.fillStyle = 'rgba(200,214,228,0.35)'
+    for (let b = 1; b <= 2; b++) {
+      const x = ox + (cols * cellW * b) / 3
+      c.fillRect(x - 1, oy + 2, 2, rows * cellH - 4)
     }
     /* etiqueta técnica no canto (o detalhe que faz parecer painel de verdade) */
     c.fillStyle = 'rgba(226,232,238,0.85)'
@@ -278,7 +286,7 @@ function textures(): TexSet {
     c.fillRect(w - 71, h - 16, 29, 2)
   })
 
-  /* --- versão emissiva (acende quando o sistema monta) --- */
+  /* --- versão emissiva (acende quando o sistema monta), mesma grade --- */
   const panelGlow = makeTex(512, 400, (c, w, h) => {
     c.fillStyle = '#01040a'
     c.fillRect(0, 0, w, h)
@@ -288,22 +296,19 @@ function textures(): TexSet {
       for (let col = 0; col < cols; col++) {
         const x = ox + col * cellW
         const y = oy + r * cellH
-        for (let half = 0; half < 2; half++) {
-          const hx = x + 2 + half * ((cellW - 4) / 2 + 1.5)
-          const hw = (cellW - 4) / 2 - 1.5
-          const g = c.createLinearGradient(hx, y, hx, y + cellH)
-          g.addColorStop(0, '#0d3555')
-          g.addColorStop(1, '#1f6fb8')
-          c.fillStyle = g
-          roundedRect(c, hx, y + 2, hw, cellH - 4, 3)
-          c.fill()
-        }
+        const g = c.createLinearGradient(x, y, x, y + cellH)
+        g.addColorStop(0, '#0d3555')
+        g.addColorStop(1, '#1f6fb8')
+        c.fillStyle = g
+        c.fillRect(x, y, cellW, cellH)
       }
     }
-    c.fillStyle = 'rgba(191,227,255,0.95)'
-    for (let b = 1; b <= 3; b++) {
-      const x = ox + (cols * cellW * b) / 4
-      c.fillRect(x - 1.5, oy + 2, 3, rows * cellH - 4)
+    c.fillStyle = 'rgba(191,227,255,0.9)'
+    for (let r = 0; r <= rows; r++) {
+      c.fillRect(ox, oy + r * cellH - 0.8, cols * cellW, 1.6)
+    }
+    for (let col = 0; col <= cols; col++) {
+      c.fillRect(ox + col * cellW - 0.8, oy, 1.6, rows * cellH)
     }
   })
 
@@ -432,25 +437,25 @@ function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, grou
     }
   })
   return <group ref={group} position={groundPos} rotation={[groundTilt, groundYaw, 0]}>
-      {/* moldura de alumínio */}
+      {/* moldura de alumínio (mais clara e presente, igual ao preview) */}
       <mesh castShadow>
-        <boxGeometry args={[1.78, 0.07, 1.42]} />
-        <meshStandardMaterial color="#b7bec5" metalness={0.85} roughness={0.32} />
+        <boxGeometry args={[1.8, 0.09, 1.44]} />
+        <meshStandardMaterial color="#ccd3da" metalness={0.9} roughness={0.26} />
       </mesh>
       {/* módulo: face de cima (material-2 = +Y) leva map + emissiveMap */}
       <mesh castShadow position={[0, 0.018, 0]}>
-        <boxGeometry args={[1.66, 0.035, 1.3]} />
+        <boxGeometry args={[1.68, 0.035, 1.32]} />
         <meshStandardMaterial attach="material-0" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-1" color="#0a1420" roughness={0.55} metalness={0.35} />
-        <meshStandardMaterial attach="material-2" ref={modMat} map={tex.panel} emissiveMap={tex.panelGlow} emissive="#cfeaff" emissiveIntensity={0.3} roughness={0.38} metalness={0.45} />
+        <meshStandardMaterial attach="material-2" ref={modMat} map={tex.panel} emissiveMap={tex.panelGlow} emissive="#cfeaff" emissiveIntensity={0.3} roughness={0.3} metalness={0.5} />
         <meshStandardMaterial attach="material-3" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-4" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-5" color="#0a1420" roughness={0.55} metalness={0.35} />
       </mesh>
       {/* vidro frontal reflexivo */}
       <mesh position={[0, 0.045, 0]}>
-        <boxGeometry args={[1.6, 0.012, 1.24]} />
-        <meshStandardMaterial color="#9fc8e8" transparent opacity={0.13} metalness={0.9} roughness={0.04} />
+        <boxGeometry args={[1.62, 0.012, 1.26]} />
+        <meshStandardMaterial color="#9fc8e8" transparent opacity={0.17} metalness={0.9} roughness={0.04} />
       </mesh>
   </group>
 }
