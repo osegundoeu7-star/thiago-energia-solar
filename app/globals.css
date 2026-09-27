@@ -1492,7 +1492,7 @@ main > * { position: relative; z-index: 1; }
     #090d10f2 60%
   );
 }
-.simulator { background: #151e25d1; }
+.simulator { background: #151e25b8; }
 .coverage { background: #0d1419d9; }
 .lead-section {
   background: radial-gradient(
