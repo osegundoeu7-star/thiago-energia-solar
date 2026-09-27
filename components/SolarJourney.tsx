@@ -6,14 +6,19 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AdditiveBlending,
+  CanvasTexture,
   CatmullRomCurve3,
   DirectionalLight,
+  DoubleSide,
   Fog,
   Group,
   Mesh,
   MeshStandardMaterial,
   Points,
   PointsMaterial,
+  RepeatWrapping,
+  Shape,
+  SRGBColorSpace,
   Vector3,
   type BufferAttribute,
   type Camera,
@@ -37,6 +42,228 @@ const tapNDC: { current: null | { x: number; y: number; ok: boolean } } = { curr
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const sm = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t) }
 const easeOutBack = (x: number) => { const c1 = 1.70158; return 1 + (c1 + 1) * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
+
+/* ============================================================
+   TEXTURAS PROCEDURAIS (NÍVEL 2 — realista estilizado)
+   Geradas 1x no cliente via CanvasTexture: telha cerâmica,
+   reboco, grama, tijolo, madeira e módulo fotovoltaico.
+   Zero assets externos: build e Lighthouse não sofrem.
+============================================================ */
+type TexSet = {
+  roof: CanvasTexture
+  wall: CanvasTexture
+  grass: CanvasTexture
+  brick: CanvasTexture
+  wood: CanvasTexture
+  panel: CanvasTexture
+  panelGlow: CanvasTexture
+}
+
+let _tex: TexSet | null = null
+
+function makeTex(w: number, h: number, draw: (c: CanvasRenderingContext2D, w: number, h: number) => void): CanvasTexture {
+  const cv = document.createElement('canvas')
+  cv.width = w
+  cv.height = h
+  const c = cv.getContext('2d')!
+  draw(c, w, h)
+  const t = new CanvasTexture(cv)
+  t.wrapS = t.wrapT = RepeatWrapping
+  t.colorSpace = SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+function textures(): TexSet {
+  if (_tex) return _tex
+
+  /* --- telha de cerâmica: fileiras sobrepostas com sombra na junção --- */
+  const roof = makeTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#5e2a1c'
+    c.fillRect(0, 0, w, h)
+    const tw = 64, th = 42
+    for (let row = 0; row < h / th + 1; row++) {
+      const off = row % 2 ? tw / 2 : 0
+      for (let col = -1; col < w / tw + 1; col++) {
+        const x = col * tw + off
+        const y = row * th
+        const g = c.createLinearGradient(0, y, 0, y + th)
+        g.addColorStop(0, '#a85437')
+        g.addColorStop(0.55, '#93452c')
+        g.addColorStop(1, '#6e3524')
+        c.fillStyle = g
+        c.beginPath()
+        c.moveTo(x + 2, y)
+        c.lineTo(x + tw - 2, y)
+        c.quadraticCurveTo(x + tw - 2, y + th, x + tw / 2, y + th + 6)
+        c.quadraticCurveTo(x + 2, y + th, x + 2, y)
+        c.closePath()
+        c.fill()
+        c.strokeStyle = 'rgba(40,16,8,0.55)'
+        c.lineWidth = 2
+        c.stroke()
+        /* brilho vertical da telha */
+        const s = c.createLinearGradient(x, 0, x + tw, 0)
+        s.addColorStop(0, 'rgba(255,255,255,0)')
+        s.addColorStop(0.5, 'rgba(255,235,200,0.10)')
+        s.addColorStop(1, 'rgba(0,0,0,0.12)')
+        c.fillStyle = s
+        c.fill()
+      }
+    }
+  })
+  roof.repeat.set(4, 1.5)
+
+  /* --- reboco: base clara com granulado sutil --- */
+  const wall = makeTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#e4ded0'
+    c.fillRect(0, 0, w, h)
+    for (let i = 0; i < 2600; i++) {
+      const x = Math.random() * w
+      const y = Math.random() * h
+      const v = Math.random()
+      c.fillStyle = v > 0.5 ? 'rgba(120,110,92,0.10)' : 'rgba(255,255,255,0.10)'
+      c.fillRect(x, y, 1.4, 1.4)
+    }
+    /* manchas suaves de desgaste */
+    for (let i = 0; i < 14; i++) {
+      const x = Math.random() * w
+      const y = Math.random() * h
+      const r = 14 + Math.random() * 30
+      const g = c.createRadialGradient(x, y, 0, x, y, r)
+      g.addColorStop(0, 'rgba(150,140,118,0.07)')
+      g.addColorStop(1, 'rgba(150,140,118,0)')
+      c.fillStyle = g
+      c.beginPath()
+      c.arc(x, y, r, 0, Math.PI * 2)
+      c.fill()
+    }
+  })
+  wall.repeat.set(3, 1.8)
+
+  /* --- grama: fios curtos em dois tons sobre base escura --- */
+  const grass = makeTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#2c471f'
+    c.fillRect(0, 0, w, h)
+    for (let i = 0; i < 1500; i++) {
+      const x = Math.random() * w
+      const y = Math.random() * h
+      const len = 3 + Math.random() * 5
+      c.strokeStyle = Math.random() > 0.5 ? 'rgba(84,130,54,0.55)' : 'rgba(30,54,20,0.55)'
+      c.lineWidth = 1.2
+      c.beginPath()
+      c.moveTo(x, y)
+      c.lineTo(x + (Math.random() - 0.5) * 2, y - len)
+      c.stroke()
+    }
+  })
+  grass.repeat.set(10, 10)
+
+  /* --- tijolo aparente com junta de argamassa --- */
+  const brick = makeTex(256, 256, (c, w, h) => {
+    c.fillStyle = '#b3a48f'
+    c.fillRect(0, 0, w, h)
+    const bw = 64, bh = 32
+    for (let row = 0; row < h / bh; row++) {
+      const off = row % 2 ? bw / 2 : 0
+      for (let col = -1; col < w / bw + 1; col++) {
+        const x = col * bw + off + 3
+        const y = row * bh + 3
+        const jitter = 0.9 + Math.random() * 0.2
+        c.fillStyle = `rgb(${Math.round(122 * jitter)},${Math.round(69 * jitter)},${Math.round(48 * jitter)})`
+        c.fillRect(x, y, bw - 6, bh - 6)
+        c.fillStyle = 'rgba(0,0,0,0.12)'
+        c.fillRect(x, y + bh - 9, bw - 6, 3)
+        c.fillStyle = 'rgba(255,255,255,0.08)'
+        c.fillRect(x, y, bw - 6, 3)
+      }
+    }
+  })
+  brick.repeat.set(1, 2)
+
+  /* --- madeira: pranchas verticais com veios --- */
+  const wood = makeTex(128, 256, (c, w, h) => {
+    c.fillStyle = '#5f4130'
+    c.fillRect(0, 0, w, h)
+    for (let p = 0; p < 4; p++) {
+      const x = p * (w / 4)
+      c.fillStyle = p % 2 ? '#674835' : '#5a3d2c'
+      c.fillRect(x + 1, 0, w / 4 - 2, h)
+      c.strokeStyle = 'rgba(30,18,10,0.7)'
+      c.lineWidth = 2
+      c.beginPath()
+      c.moveTo(x, 0)
+      c.lineTo(x, h)
+      c.stroke()
+    }
+    for (let i = 0; i < 46; i++) {
+      const x = Math.random() * w
+      c.strokeStyle = `rgba(${Math.random() > 0.5 ? '36,22,12,0.5' : '140,104,74,0.35'})`
+      c.lineWidth = 1
+      c.beginPath()
+      c.moveTo(x, 0)
+      c.bezierCurveTo(x + 4, h * 0.33, x - 4, h * 0.66, x + 2, h)
+      c.stroke()
+    }
+  })
+
+  /* --- módulo fotovoltaico: 6x4 células + 3 busbars --- */
+  const cellW = 42, cellH = 50, cols = 6, rows = 4
+  const panel = makeTex(512, 400, (c, w, h) => {
+    c.fillStyle = '#0a1830'
+    c.fillRect(0, 0, w, h)
+    const ox = (w - cols * cellW) / 2
+    const oy = (h - rows * cellH) / 2
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = ox + col * cellW
+        const y = oy + r * cellH
+        const g = c.createLinearGradient(x, y, x + cellW, y + cellH)
+        g.addColorStop(0, '#123a6e')
+        g.addColorStop(0.5, '#0d2c52')
+        g.addColorStop(1, '#1c5aa8')
+        c.fillStyle = g
+        c.fillRect(x + 2, y + 2, cellW - 4, cellH - 4)
+        c.strokeStyle = 'rgba(159,178,200,0.5)'
+        c.lineWidth = 1
+        c.strokeRect(x + 2, y + 2, cellW - 4, cellH - 4)
+      }
+    }
+    /* busbars prateadas verticais */
+    c.fillStyle = 'rgba(207,217,230,0.85)'
+    for (let b = 1; b <= 3; b++) {
+      const x = ox + (w / (cols * cellW)) * 0 + (b * cols * cellW) / 4
+      c.fillRect(x - 1.5, oy, 3, rows * cellH)
+    }
+  })
+
+  /* --- versão emissiva (acende quando o sistema monta) --- */
+  const panelGlow = makeTex(512, 400, (c, w, h) => {
+    c.fillStyle = '#02060d'
+    c.fillRect(0, 0, w, h)
+    const ox = (w - cols * cellW) / 2
+    const oy = (h - rows * cellH) / 2
+    for (let r = 0; r < rows; r++) {
+      for (let col = 0; col < cols; col++) {
+        const x = ox + col * cellW
+        const y = oy + r * cellH
+        const g = c.createLinearGradient(x, y, x, y + cellH)
+        g.addColorStop(0, '#0e2f4e')
+        g.addColorStop(1, '#1d5fae')
+        c.fillStyle = g
+        c.fillRect(x + 3, y + 3, cellW - 6, cellH - 6)
+      }
+    }
+    c.fillStyle = 'rgba(191,227,255,0.9)'
+    for (let b = 1; b <= 3; b++) {
+      const x = ox + (b * cols * cellW) / 4
+      c.fillRect(x - 1.5, oy, 3, rows * cellH)
+    }
+  })
+
+  _tex = { roof, wall, grass, brick, wood, panel, panelGlow }
+  return _tex
+}
 
 /* ========================= FLUXO DE PARTÍCULAS ========================= */
 type FlowProps = {
@@ -118,9 +345,17 @@ function Clouds() {
   </group>
 }
 
-/* ========================= PAINEL SOLAR (montagem animada) ========================= */
-function PanelArray({ index, processRef }: { index: number; processRef: React.RefObject<number[]> }) {
+/* ========================= PAINEL SOLAR PROFISSIONAL (montagem animada) =========================
+   Moldura de alumínio + módulo com textura de células (map + emissiveMap)
+   + vidro reflexivo. 1 draw call por módulo: leve no celular. */
+function PanelArray({ index, processRef, tilt, tex }: {
+  index: number
+  processRef: React.RefObject<number[]>
+  tilt: number
+  tex: TexSet
+}) {
   const group = useRef<Group>(null)
+  const modMat = useRef<MeshStandardMaterial>(null)
   useFrame(() => {
     const g = group.current
     if (!g) return
@@ -128,18 +363,35 @@ function PanelArray({ index, processRef }: { index: number; processRef: React.Re
     const s = x <= 0.001 ? 0.0001 : easeOutBack(x)
     g.visible = x > 0.001
     g.scale.setScalar(Math.max(0.0001, s))
-    g.position.y = (1 - x) * 1.1
+    g.position.y = (1 - x) * 0.9
+    /* células acendem com o quadradinho da montagem (x²) e com interação */
+    if (modMat.current) {
+      modMat.current.emissiveIntensity = x * x * (0.4 + clamp(journey.simulator, 0, 1) * 0.6 + journey.boost * 0.8)
+    }
   })
-  const cells: [number, number][] = [[-0.62, 0.34], [0, 0.34], [0.62, 0.34], [-0.62, -0.36], [0, -0.36], [0.62, -0.36]]
   return <group ref={group}>
-    <mesh rotation={[-0.62, 0, 0]}>
-      <boxGeometry args={[2.05, 0.07, 1.25]} />
-      <meshStandardMaterial color="#0e2f4e" metalness={0.65} roughness={0.28} emissive="#0a4f8a" emissiveIntensity={0.16} />
-    </mesh>
-    {cells.map(([cx, cz], i) => <mesh key={i} position={[cx, 0.055 + cz * 0.02, cz]} rotation={[-0.62, 0, 0]}>
-      <boxGeometry args={[0.56, 0.015, 0.5]} />
-      <meshStandardMaterial color="#12406b" metalness={0.8} roughness={0.18} emissive="#1c6fb8" emissiveIntensity={0.22} />
-    </mesh>)}
+    <group rotation={[tilt, 0, 0]}>
+      {/* moldura de alumínio */}
+      <mesh castShadow>
+        <boxGeometry args={[1.78, 0.07, 1.42]} />
+        <meshStandardMaterial color="#b7bec5" metalness={0.85} roughness={0.32} />
+      </mesh>
+      {/* módulo: face de cima (material-2 = +Y) leva map + emissiveMap */}
+      <mesh castShadow position={[0, 0.018, 0]}>
+        <boxGeometry args={[1.66, 0.035, 1.3]} />
+        <meshStandardMaterial attach="material-0" color="#0a1420" roughness={0.55} metalness={0.35} />
+        <meshStandardMaterial attach="material-1" color="#0a1420" roughness={0.55} metalness={0.35} />
+        <meshStandardMaterial attach="material-2" ref={modMat} map={tex.panel} emissiveMap={tex.panelGlow} emissive="#cfeaff" emissiveIntensity={0.3} roughness={0.38} metalness={0.45} />
+        <meshStandardMaterial attach="material-3" color="#0a1420" roughness={0.55} metalness={0.35} />
+        <meshStandardMaterial attach="material-4" color="#0a1420" roughness={0.55} metalness={0.35} />
+        <meshStandardMaterial attach="material-5" color="#0a1420" roughness={0.55} metalness={0.35} />
+      </mesh>
+      {/* vidro frontal reflexivo */}
+      <mesh position={[0, 0.045, 0]}>
+        <boxGeometry args={[1.6, 0.012, 1.24]} />
+        <meshStandardMaterial color="#9fc8e8" transparent opacity={0.13} metalness={0.9} roughness={0.04} />
+      </mesh>
+    </group>
   </group>
 }
 
@@ -150,12 +402,23 @@ function World({ reduced }: { reduced: boolean }) {
   const sun = useRef<Group>(null)
   const sunCore = useRef<Mesh>(null)
   const sunLight = useRef<DirectionalLight>(null)
-  const windowsMat = useRef<MeshStandardMaterial>(null)
+  const winMats = useRef<Array<MeshStandardMaterial | null>>([])
   const meterMat = useRef<MeshStandardMaterial>(null)
   const processRef = useRef<number[]>([0, 0, 0])
   const tmp = useMemo(() => new Vector3(), [])
   const camera = useThree(s => s.camera)
   const compact = useThree(s => s.size.width < 640)
+  const tex = textures()
+
+  /* oitão (triângulo da lateral) sob o beiral */
+  const gableShape = useMemo(() => {
+    const s = new Shape()
+    s.moveTo(-1.15, 0)
+    s.lineTo(1.15, 0)
+    s.lineTo(0, 0.71)
+    s.closePath()
+    return s
+  }, [])
 
   useFrame(({ clock }, delta) => {
     const dt = Math.min(delta, 0.05)
@@ -213,8 +476,9 @@ function World({ reduced }: { reduced: boolean }) {
     /* --- brilho da casa e decaimento do toque --- */
     journey.boost *= Math.exp(-0.9 * dt)
     const billF = clamp((journey.bill - 100) / 4900, 0, 1)
-    if (windowsMat.current) {
-      windowsMat.current.emissiveIntensity = 0.14 + 1.5 * Math.max(sim, lead) + journey.boost * 0.5 + (assembled ? 0.25 : 0)
+    if (winMats.current.length) {
+      const w = 0.14 + 1.5 * Math.max(sim, lead) + journey.boost * 0.5 + (assembled ? 0.25 : 0)
+      winMats.current.forEach(m => { if (m) m.emissiveIntensity = w })
     }
     if (meterMat.current) {
       meterMat.current.emissiveIntensity = 1.1 + billF * 1.6 + journey.boost * 0.9 + sim * 0.5
@@ -238,48 +502,157 @@ function World({ reduced }: { reduced: boolean }) {
 
   return <group ref={rig} position={[1.45, 0.15, 0]}>
     <group ref={spin} rotation={[0.05, 0, 0]}>
-      {/* chão */}
-      <mesh position={[0, -0.02, 0]}>
+      {/* chão de grama (material-1 = face de cima do cilindro) */}
+      <mesh receiveShadow position={[0, -0.02, 0]}>
         <cylinderGeometry args={[6.4, 6.4, 0.06, 40]} />
-        <meshStandardMaterial color="#0c1418" roughness={1} />
+        <meshStandardMaterial attach="material-0" color="#0c1418" roughness={1} />
+        <meshStandardMaterial attach="material-1" map={tex.grass} roughness={1} />
+        <meshStandardMaterial attach="material-2" color="#0c1418" roughness={1} />
       </mesh>
       <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[4.55, 4.62, 64]} />
         <meshBasicMaterial color="#f7c54b" transparent opacity={0.16} />
       </mesh>
 
-      {/* casa */}
-      <mesh position={[0, 0.75, 0]}>
-        <boxGeometry args={[2.6, 1.5, 1.9]} />
-        <meshStandardMaterial color="#e8e4da" roughness={0.85} />
+      {/* fundação (esconde a base da parede na grama) */}
+      <mesh castShadow receiveShadow position={[0, 0.11, 0]}>
+        <boxGeometry args={[3.28, 0.24, 2.38]} />
+        <meshStandardMaterial color="#b9b2a4" roughness={0.95} />
       </mesh>
-      {/* telhado duas águas */}
-      <mesh position={[0, 1.68, 0.62]} rotation={[0.62, 0, 0]}>
-        <boxGeometry args={[2.85, 0.09, 1.35]} />
-        <meshStandardMaterial color="#8a4a33" roughness={0.8} />
+
+      {/* casa ampliada com reboco */}
+      <mesh castShadow receiveShadow position={[0, 1.19, 0]}>
+        <boxGeometry args={[3.2, 2.02, 2.3]} />
+        <meshStandardMaterial map={tex.wall} roughness={0.9} />
       </mesh>
-      <mesh position={[0, 1.68, -0.62]} rotation={[-0.62, 0, 0]}>
-        <boxGeometry args={[2.85, 0.09, 1.35]} />
-        <meshStandardMaterial color="#7a4030" roughness={0.8} />
-      </mesh>
-      {/* chaminé */}
-      <mesh position={[0.85, 2.12, -0.25]}>
-        <boxGeometry args={[0.28, 0.5, 0.28]} />
-        <meshStandardMaterial color="#5e3326" roughness={0.9} />
-      </mesh>
-      {/* porta e janelas */}
-      <mesh position={[-0.55, 0.52, 0.955]}>
-        <boxGeometry args={[0.5, 0.95, 0.05]} />
-        <meshStandardMaterial color="#3a2c22" roughness={0.7} />
-      </mesh>
-      {[0.35, 0.95].map(x => <mesh key={x} position={[x, 0.85, 0.955]}>
-        <boxGeometry args={[0.44, 0.44, 0.04]} />
-        <meshStandardMaterial ref={x === 0.95 ? windowsMat : undefined} color="#ffd98c" emissive="#ffb547" emissiveIntensity={0.14} roughness={0.4} />
+
+      {/* oitões laterais */}
+      {[1.6, -1.6].map(x => <mesh key={x} position={[x, 2.2, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <shapeGeometry args={[gableShape]} />
+        <meshStandardMaterial color="#ded7c6" roughness={0.95} side={DoubleSide} />
       </mesh>)}
+
+      {/* telhado duas águas CORRIGIDO: água da frente inclina para +z */}
+      <mesh castShadow receiveShadow position={[0, 2.515, 0.66]} rotation={[0.58, 0, 0]}>
+        <boxGeometry args={[3.72, 0.11, 1.66]} />
+        <meshStandardMaterial attach="material-0" color="#6e3524" roughness={0.85} />
+        <meshStandardMaterial attach="material-1" color="#6e3524" roughness={0.85} />
+        <meshStandardMaterial attach="material-2" map={tex.roof} roughness={0.85} />
+        <meshStandardMaterial attach="material-3" color="#4a2317" roughness={0.9} />
+        <meshStandardMaterial attach="material-4" color="#6e3524" roughness={0.85} />
+        <meshStandardMaterial attach="material-5" color="#6e3524" roughness={0.85} />
+      </mesh>
+      {/* água dos fundos */}
+      <mesh castShadow receiveShadow position={[0, 2.515, -0.66]} rotation={[-0.58, 0, 0]}>
+        <boxGeometry args={[3.72, 0.11, 1.66]} />
+        <meshStandardMaterial attach="material-0" color="#66311f" roughness={0.85} />
+        <meshStandardMaterial attach="material-1" color="#66311f" roughness={0.85} />
+        <meshStandardMaterial attach="material-2" map={tex.roof} roughness={0.85} />
+        <meshStandardMaterial attach="material-3" color="#452015" roughness={0.9} />
+        <meshStandardMaterial attach="material-4" color="#66311f" roughness={0.85} />
+        <meshStandardMaterial attach="material-5" color="#66311f" roughness={0.85} />
+      </mesh>
+      {/* cumeeira */}
+      <mesh castShadow position={[0, 2.97, 0]}>
+        <boxGeometry args={[3.78, 0.13, 0.22]} />
+        <meshStandardMaterial color="#5e2a1c" roughness={0.9} />
+      </mesh>
+
+      {/* chaminé de tijolos com capa */}
+      <group position={[1.15, 0, -0.5]}>
+        <mesh castShadow receiveShadow position={[0, 2.62, 0]}>
+          <boxGeometry args={[0.34, 1.45, 0.34]} />
+          <meshStandardMaterial map={tex.brick} roughness={0.95} />
+        </mesh>
+        <mesh castShadow position={[0, 3.38, 0]}>
+          <boxGeometry args={[0.44, 0.09, 0.44]} />
+          <meshStandardMaterial color="#4a2317" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 3.44, 0]}>
+          <boxGeometry args={[0.26, 0.06, 0.26]} />
+          <meshStandardMaterial color="#1a100b" roughness={1} />
+        </mesh>
+      </group>
+
+      {/* porta de madeira com batente e maçaneta */}
+      <group position={[-0.78, 0, 1.16]}>
+        <mesh position={[0, 0.72, 0]}>
+          <boxGeometry args={[0.78, 1.44, 0.07]} />
+          <meshStandardMaterial color="#efe8d8" roughness={0.8} />
+        </mesh>
+        <mesh castShadow position={[0, 0.68, 0.03]}>
+          <boxGeometry args={[0.62, 1.32, 0.06]} />
+          <meshStandardMaterial map={tex.wood} roughness={0.75} />
+        </mesh>
+        <mesh position={[0.24, 0.68, 0.075]}>
+          <sphereGeometry args={[0.045, 12, 10]} />
+          <meshStandardMaterial color="#d9a441" metalness={0.9} roughness={0.25} />
+        </mesh>
+      </group>
+
+      {/* janelas da frente com cruzeta e peitoril (acendem de noite) */}
+      {[0.32, 1.02].map((x, wi) => <group key={x} position={[x, 1.32, 1.16]}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.62, 0.78, 0.06]} />
+          <meshStandardMaterial color="#efe8d8" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 0, 0.035]}>
+          <boxGeometry args={[0.5, 0.66, 0.05]} />
+          <meshStandardMaterial ref={r => { winMats.current[wi] = r }} color="#2b3340" emissive="#ffb547" emissiveIntensity={0.14} roughness={0.25} metalness={0.35} />
+        </mesh>
+        <mesh position={[0, 0, 0.065]}>
+          <boxGeometry args={[0.52, 0.035, 0.012]} />
+          <meshStandardMaterial color="#efe8d8" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 0, 0.065]}>
+          <boxGeometry args={[0.035, 0.68, 0.012]} />
+          <meshStandardMaterial color="#efe8d8" roughness={0.8} />
+        </mesh>
+        <mesh castShadow position={[0, -0.44, 0.05]}>
+          <boxGeometry args={[0.7, 0.06, 0.14]} />
+          <meshStandardMaterial color="#d9d0bd" roughness={0.85} />
+        </mesh>
+      </group>)}
+
+      {/* janela lateral */}
+      <group position={[1.615, 1.32, 0.25]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.62, 0.78, 0.06]} />
+          <meshStandardMaterial color="#efe8d8" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 0, 0.035]}>
+          <boxGeometry args={[0.5, 0.66, 0.05]} />
+          <meshStandardMaterial ref={r => { winMats.current[2] = r }} color="#2b3340" emissive="#ffb547" emissiveIntensity={0.14} roughness={0.25} metalness={0.35} />
+        </mesh>
+        <mesh castShadow position={[0, -0.44, 0.05]}>
+          <boxGeometry args={[0.7, 0.06, 0.14]} />
+          <meshStandardMaterial color="#d9d0bd" roughness={0.85} />
+        </mesh>
+      </group>
+
+      {/* árvore */}
+      <group position={[-2.55, 0, -0.9]}>
+        <mesh castShadow position={[0, 0.55, 0]}>
+          <cylinderGeometry args={[0.09, 0.14, 1.1, 10]} />
+          <meshStandardMaterial color="#4a3423" roughness={0.95} />
+        </mesh>
+        <mesh castShadow position={[0, 1.5, 0]}>
+          <sphereGeometry args={[0.72, 14, 12]} />
+          <meshStandardMaterial color="#3f6b34" roughness={1} />
+        </mesh>
+        <mesh castShadow position={[0.38, 1.15, 0.22]}>
+          <sphereGeometry args={[0.45, 12, 10]} />
+          <meshStandardMaterial color="#487a3b" roughness={1} />
+        </mesh>
+        <mesh castShadow position={[-0.35, 1.25, -0.25]}>
+          <sphereGeometry args={[0.4, 12, 10]} />
+          <meshStandardMaterial color="#365f2d" roughness={1} />
+        </mesh>
+      </group>
 
       {/* medidor de energia */}
       <group position={[2.05, 0, 0.75]}>
-        <mesh position={[0, 0.42, 0]}>
+        <mesh castShadow position={[0, 0.42, 0]}>
           <boxGeometry args={[0.34, 0.84, 0.26]} />
           <meshStandardMaterial color="#20282e" metalness={0.5} roughness={0.5} />
         </mesh>
@@ -289,10 +662,10 @@ function World({ reduced }: { reduced: boolean }) {
         </mesh>
       </group>
 
-      {/* painéis (montagem no capítulo processo) */}
-      <group position={[0, 2.02, 0.28]}><PanelArray index={0} processRef={processRef} /></group>
-      <group position={[0, 2.02, -0.34]}><PanelArray index={1} processRef={processRef} /></group>
-      <group position={[0.9, 2.32, -0.25]} scale={0.5}><PanelArray index={2} processRef={processRef} /></group>
+      {/* painéis alinhados às águas do telhado */}
+      <group position={[-0.86, 2.77, 0.6]}><PanelArray index={0} processRef={processRef} tilt={0.58} tex={tex} /></group>
+      <group position={[0.86, 2.77, 0.6]}><PanelArray index={1} processRef={processRef} tilt={0.58} tex={tex} /></group>
+      <group position={[0.9, 2.77, -0.6]}><PanelArray index={2} processRef={processRef} tilt={-0.58} tex={tex} /></group>
 
       {/* sol viajante */}
       <group ref={sun} position={[-3.2, 1.2, -2.4]}>
@@ -304,15 +677,32 @@ function World({ reduced }: { reduced: boolean }) {
         <mesh><sphereGeometry args={[1.7, 16, 14]} /><meshBasicMaterial color="#ffb63d" transparent opacity={0.08} depthWrite={false} fog={false} /></mesh>
         <Sparkles count={22} scale={3.2} size={2.4} speed={0.3} color="#ffd56f" opacity={0.6} />
       </group>
-      <directionalLight ref={sunLight} position={[-3, 2.5, -2]} intensity={1.6} color="#ffd36a" />
+      {/* luz do sol com sombras reais */}
+      <directionalLight
+        ref={sunLight}
+        position={[-3, 2.5, -2]}
+        intensity={1.6}
+        color="#ffd36a"
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-left={-5.5}
+        shadow-camera-right={5.5}
+        shadow-camera-top={5.5}
+        shadow-camera-bottom={-5.5}
+        shadow-camera-near={0.5}
+        shadow-camera-far={20}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.03}
+      />
 
-      {/* fluxos de energia */}
-      <FlowLine points={[[-3, 1.4, -2.4], [-1, 2.6, -1], [0, 2.42, 0]]} count={12}
+      {/* fluxos de energia realinhados à nova cena */}
+      <FlowLine points={[[-3, 1.4, -2.4], [-1.2, 3.3, -1.2], [0, 3.06, 0]]} count={12}
         flow={() => 0.3 + journey.boost * 0.55 + clamp(journey.simulator, 0, 1) * 0.25} sunRef={sun} />
-      <FlowLine points={[[-3, 1.4, -2.4], [-0.8, 2.9, -0.4], [0, 2.34, 0.3]]} flow={flowPanels} sunRef={sun} />
-      <FlowLine points={[[-3, 1.4, -2.4], [-0.6, 2.9, -0.8], [0, 2.34, -0.36]]} count={12}
+      <FlowLine points={[[-3, 1.4, -2.4], [-1.6, 3.1, -0.5], [-0.86, 2.85, 0.55]]} flow={flowPanels} sunRef={sun} />
+      <FlowLine points={[[-3, 1.4, -2.4], [-0.8, 3.3, -1.4], [0.86, 2.85, 0.55]]} count={12}
         flow={() => flowPanels() * 0.9} sunRef={sun} />
-      <FlowLine points={[[0, 2.2, 0.3], [1.4, 1.4, 0.7], [2.05, 0.75, 0.75]]} count={10}
+      <FlowLine points={[[0.86, 2.5, 1.0], [1.8, 1.5, 0.85], [2.2, 0.95, 0.9]]} count={10}
         flow={() => (flowPanels() > 0 ? 0.5 + clamp((journey.bill - 100) / 4900, 0, 1) * 0.9 + clamp(journey.simulator * 1.4, 0, 1) * 0.9 + journey.boost * 0.8 : 0)} />
 
       {/* nuvens (capítulo problema) */}
@@ -393,10 +783,12 @@ export default function SolarJourney() {
       dpr={[1, 1.25]}
       camera={{ position: [0, 1.75, 7.6], fov: 40 }}
       gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
+      shadows={!reduced}
     >
       <fog attach="fog" args={['#090d10', 12, 20]} />
-      <ambientLight intensity={0.7} />
-      <pointLight position={[-4, 2, 3]} intensity={5} color="#3e9ef7" distance={9} />
+      <ambientLight intensity={0.42} />
+      <hemisphereLight args={['#7fb0dd', '#241b12']} intensity={0.55} />
+      <pointLight position={[-4, 2, 3]} intensity={3} color="#3e9ef7" distance={9} />
       <World reduced={reduced} />
     </Canvas>
     {hint && <p className="scene-interaction-hint" aria-hidden="true"><span>↔</span> Arraste para girar · toque no sol</p>}
