@@ -348,7 +348,9 @@ function Clouds() {
    Moldura de alumínio + módulo com textura de células (map + emissiveMap)
    + vidro reflexivo. 1 draw call por módulo: leve no celular.
    No hero os módulos ficam deitados na GRAMA (visíveis desde o 1º segundo);
-   no capítulo processo cada um voa em arco e encaixa na sua água do telhado. */
+   no SIMULADOR (quando a cena volta a aparecer) cada um voa em arco e
+   encaixa na sua água do telhado — o .process tem fundo opaco, um voo lá
+   atrás aconteceria escondido e ninguém veria. */
 function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, groundTilt, groundYaw, arc = 1.15 }: {
   index: number
   processRef: React.RefObject<number[]>
@@ -374,9 +376,9 @@ function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, grou
     )
     g.rotation.x = groundTilt + (roofTilt - groundTilt) * e
     g.rotation.y = groundYaw * (1 - e)
-    /* células acendem ao pousar no telhado (x²) e com interação */
+    /* células com brilho mínimo já na grama; acendem de verdade no voo/pouso */
     if (modMat.current) {
-      modMat.current.emissiveIntensity = x * x * (0.4 + clamp(journey.simulator, 0, 1) * 0.6 + journey.boost * 0.8)
+      modMat.current.emissiveIntensity = 0.22 + x * x * (0.4 + clamp(journey.simulator, 0, 1) * 0.7 + journey.boost * 0.9)
     }
   })
   return <group ref={group} position={groundPos} rotation={[groundTilt, groundYaw, 0]}>
@@ -432,9 +434,15 @@ function World({ reduced }: { reduced: boolean }) {
     const dt = Math.min(delta, 0.05)
     const t = clock.getElapsedTime()
 
-    /* --- montagem dos painéis (capítulo processo) --- */
-    const assemble = clamp((journey.process - 0.12) / 0.5, 0, 1)
-    processRef.current = [sm(assemble * 3), sm(assemble * 3 - 1), sm(assemble * 3 - 2)]
+    /* --- voo dos painéis: grama -> telhado, agora no SIMULADOR ---
+       Antes disparava no .process, mas essa seção é opaca (a cena fica
+       escondida atrás dela) e o voo acontecia invisível. Agora o voo roda
+       na janela em que o .simulator (translúcido) revela a cena: as placas
+       saem da grama em arcos sobrepostos e pousam no telhado na frente do
+       usuário. A janela termina em ~24% do progresso, antes do usuário
+       mergulhar no formulário. */
+    const assemble = clamp((journey.simulator - 0.06) / 0.18, 0, 1)
+    processRef.current = [sm(assemble * 2.2), sm(assemble * 2.2 - 0.6), sm(assemble * 2.2 - 1.2)]
     const assembled = (processRef.current[0] + processRef.current[1] + processRef.current[2]) / 3 >= 0.99
     const sim = clamp(journey.simulator * 1.4, 0, 1)
     const lead = clamp(journey.lead, 0, 1)
@@ -670,7 +678,7 @@ function World({ reduced }: { reduced: boolean }) {
         </mesh>
       </group>
 
-      {/* painéis: deitados na grama desde o hero, voam para o telhado no processo */}
+      {/* painéis: deitados na grama desde o hero, voam para o telhado quando o simulador chega */}
       <PanelArray index={0} processRef={processRef} tex={tex}
         roofPos={[-0.86, 2.77, 0.6]} roofTilt={0.58}
         groundPos={[-2.05, 0.16, 1.9]} groundTilt={0.14} groundYaw={0.35} />
