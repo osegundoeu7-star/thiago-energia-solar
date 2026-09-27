@@ -465,6 +465,7 @@ function World({ reduced }: { reduced: boolean }) {
   const winMats = useRef<Array<MeshStandardMaterial | null>>([])
   const meterMat = useRef<MeshStandardMaterial>(null)
   const processRef = useRef<number[]>([0, 0, 0])
+  const lookY = useRef(0)
   const tmp = useMemo(() => new Vector3(), [])
   const camera = useThree(s => s.camera)
   const compact = useThree(s => s.size.width < 640)
@@ -528,16 +529,34 @@ function World({ reduced }: { reduced: boolean }) {
       sunLight.current.intensity = 0.85 + Math.sin(Math.PI * clamp(sunT, 0, 1)) * 1.15
     }
 
-    /* --- composição: hero à direita · depois centro --- */
+    /* --- composição: hero à direita · depois centro ---
+       CORREÇÃO: no celular a casa ficava deslocada à direita (0.85) em
+       TODOS os capítulos — no simulador isso empurrava a placa da direita
+       pra fora da tela. Agora o deslocamento só vale no hero; nos demais
+       capítulos a casa centraliza (no desktop desloca um pouco à esquerda
+       pra fugir do formulário) e o telhado inteiro cabe no quadro.
+       ty 0.05 nos capítulos deixa o telhado livre da barra de navegação. */
     if (rig.current) {
       const onHero = journey.hero > 0.25
-      const tx = compact ? 0.85 : (onHero ? 1.45 : 0)
+      const tx = compact ? (onHero ? 0.85 : 0) : (onHero ? 1.45 : -0.75)
       const ts = compact ? 0.72 : (onHero ? 0.92 : 1.04)
-      const ty = compact ? 0.25 : (onHero ? 0.15 : 0)
+      const ty = compact ? (onHero ? 0.25 : 0.05) : (onHero ? 0.15 : 0)
       const k = 1 - Math.exp(-2.6 * dt)
       rig.current.position.x += (tx - rig.current.position.x) * k
       rig.current.position.y += (ty - rig.current.position.y) * k
       rig.current.scale.setScalar(rig.current.scale.x + (ts - rig.current.scale.x) * k)
+    }
+
+    /* --- CÂMERA: o R3F mira o centro do chão (0,0,0) por padrão e o
+       telhado estourava pra fora de cima da tela. Aqui a gente assume o
+       comando do olhar: no hero continua mirando o chão (composição
+       aprovada) e nos capítulos sobe suavemente pra mirar mais alto,
+       trazendo telhado + placas pra dentro do quadro. */
+    if (camera) {
+      const targetLook = journey.hero > 0.25 ? 0 : 1.28
+      const kLook = 1 - Math.exp(-3 * dt)
+      lookY.current += (targetLook - lookY.current) * kLook
+      camera.lookAt(0, lookY.current, 0)
     }
 
     /* --- rotação: arraste + deriva suave --- */
@@ -870,11 +889,11 @@ export default function SolarJourney() {
     <Canvas
       frameloop={running ? 'always' : 'never'}
       dpr={[1, 1.25]}
-      camera={{ position: [0, 1.75, 7.6], fov: 40 }}
+      camera={{ position: [0, 1.95, 9.4], fov: 40 }}
       gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
       shadows={!reduced}
     >
-      <fog attach="fog" args={['#090d10', 12, 20]} />
+      <fog attach="fog" args={['#090d10', 13.5, 22]} />
       <ambientLight intensity={0.42} />
       <hemisphereLight args={['#7fb0dd', '#241b12']} intensity={0.55} />
       <pointLight position={[-4, 2, 3]} intensity={3} color="#3e9ef7" distance={9} />
