@@ -350,8 +350,11 @@ function Clouds() {
    No hero os módulos ficam deitados na GRAMA (visíveis desde o 1º segundo);
    no SIMULADOR (quando a cena volta a aparecer) cada um voa em arco e
    encaixa na sua água do telhado — o .process tem fundo opaco, um voo lá
-   atrás aconteceria escondido e ninguém veria. */
-function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, groundTilt, groundYaw, arc = 1.15 }: {
+   atrás aconteceria escondido e ninguém veria.
+   O voo é LENTO de propósito: cada placa leva ~35% do progresso do
+   simulador pra subir (janela 4x maior que a original) pra dar tempo
+   de acompanhar o arco inteiro — sobe, faz a curva e desce no telhado. */
+function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, groundTilt, groundYaw, arc = 1.35 }: {
   index: number
   processRef: React.RefObject<number[]>
   tex: TexSet
@@ -434,15 +437,18 @@ function World({ reduced }: { reduced: boolean }) {
     const dt = Math.min(delta, 0.05)
     const t = clock.getElapsedTime()
 
-    /* --- voo dos painéis: grama -> telhado, agora no SIMULADOR ---
-       Antes disparava no .process, mas essa seção é opaca (a cena fica
-       escondida atrás dela) e o voo acontecia invisível. Agora o voo roda
-       na janela em que o .simulator (translúcido) revela a cena: as placas
-       saem da grama em arcos sobrepostos e pousam no telhado na frente do
-       usuário. A janela termina em ~24% do progresso, antes do usuário
-       mergulhar no formulário. */
-    const assemble = clamp((journey.simulator - 0.06) / 0.18, 0, 1)
-    processRef.current = [sm(assemble * 2.2), sm(assemble * 2.2 - 0.6), sm(assemble * 2.2 - 1.2)]
+    /* --- voo dos painéis: grama -> telhado, LENTO e escalonado ---
+       Janela larga: começa cedo (simulator 0.05) e só termina em ~57%.
+       Cada placa gasta sozinha ~35% do progresso do simulador pra subir
+       (antes era ~8% — subia que nem foguete e o arco não dava pra ver).
+       Decolagem escalonada: a 1ª sai, a 2ª sai no meio do voo dela, a 3ª
+       sai quando a 1ª já tá perto do telhado — três arcos sobrepostos.
+       Cronograma (progresso do .simulator):
+         placa 0: decola 0.05 -> pousa 0.40
+         placa 1: decola 0.14 -> pousa 0.48
+         placa 2: decola 0.22 -> pousa 0.57 */
+    const assemble = clamp((journey.simulator - 0.05) / 0.52, 0, 1)
+    processRef.current = [sm(assemble * 1.5), sm(assemble * 1.5 - 0.25), sm(assemble * 1.5 - 0.5)]
     const assembled = (processRef.current[0] + processRef.current[1] + processRef.current[2]) / 3 >= 0.99
     const sim = clamp(journey.simulator * 1.4, 0, 1)
     const lead = clamp(journey.lead, 0, 1)
