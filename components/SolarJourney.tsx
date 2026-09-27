@@ -73,6 +73,17 @@ function makeTex(w: number, h: number, draw: (c: CanvasRenderingContext2D, w: nu
   return t
 }
 
+/* retângulo de cantos arredondados (célula do módulo) */
+function roundedRect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  c.beginPath()
+  c.moveTo(x + r, y)
+  c.arcTo(x + w, y, x + w, y + h, r)
+  c.arcTo(x + w, y + h, x, y + h, r)
+  c.arcTo(x, y + h, x, y, r)
+  c.arcTo(x, y, x + w, y, r)
+  c.closePath()
+}
+
 function textures(): TexSet {
   if (_tex) return _tex
 
@@ -206,10 +217,14 @@ function textures(): TexSet {
     }
   })
 
-  /* --- módulo fotovoltaico: 6x4 células + 3 busbars --- */
+  /* --- módulo fotovoltaico PREMIUM (estilo mono PERC all-black) ---
+     células meio-cortadas com canto arredondado + variação de tom por
+     célula, fingers prateados, 3 busbars e etiqueta técnica no canto.
+     Mesmo custo: continua sendo 1 textura de 512x400, zero peso extra. */
   const cellW = 42, cellH = 50, cols = 6, rows = 4
   const panel = makeTex(512, 400, (c, w, h) => {
-    c.fillStyle = '#0a1830'
+    /* backsheet preto (all-black) */
+    c.fillStyle = '#07090c'
     c.fillRect(0, 0, w, h)
     const ox = (w - cols * cellW) / 2
     const oy = (h - rows * cellH) / 2
@@ -217,28 +232,55 @@ function textures(): TexSet {
       for (let col = 0; col < cols; col++) {
         const x = ox + col * cellW
         const y = oy + r * cellH
-        const g = c.createLinearGradient(x, y, x + cellW, y + cellH)
-        g.addColorStop(0, '#123a6e')
-        g.addColorStop(0.5, '#0d2c52')
-        g.addColorStop(1, '#1c5aa8')
-        c.fillStyle = g
-        c.fillRect(x + 2, y + 2, cellW - 4, cellH - 4)
-        c.strokeStyle = 'rgba(159,178,200,0.5)'
+        const shade = 0.88 + Math.random() * 0.24 /* cada célula reflete diferente */
+        /* célula meio-cortada: 2 metades com fenda fina */
+        for (let half = 0; half < 2; half++) {
+          const hx = x + 2 + half * ((cellW - 4) / 2 + 1.5)
+          const hw = (cellW - 4) / 2 - 1.5
+          const g = c.createLinearGradient(hx, y, hx + hw, y + cellH)
+          g.addColorStop(0, `rgb(${Math.round(13 * shade)},${Math.round(26 * shade)},${Math.round(46 * shade)})`)
+          g.addColorStop(0.5, `rgb(${Math.round(9 * shade)},${Math.round(19 * shade)},${Math.round(36 * shade)})`)
+          g.addColorStop(1, `rgb(${Math.round(22 * shade)},${Math.round(43 * shade)},${Math.round(74 * shade)})`)
+          c.fillStyle = g
+          roundedRect(c, hx, y + 2, hw, cellH - 4, 3)
+          c.fill()
+          /* fingers: trilhas finas prateadas que pegam a luz */
+          c.strokeStyle = 'rgba(178,198,224,0.16)'
+          c.lineWidth = 1
+          for (let f = 1; f < 9; f++) {
+            const fx = hx + (hw / 9) * f
+            c.beginPath()
+            c.moveTo(fx, y + 3)
+            c.lineTo(fx, y + cellH - 3)
+            c.stroke()
+          }
+        }
+        /* contorno sutil da célula */
+        c.strokeStyle = 'rgba(120,145,175,0.28)'
         c.lineWidth = 1
-        c.strokeRect(x + 2, y + 2, cellW - 4, cellH - 4)
+        roundedRect(c, x + 2, y + 2, cellW - 4, cellH - 4, 3)
+        c.stroke()
       }
     }
-    /* busbars prateadas verticais */
-    c.fillStyle = 'rgba(207,217,230,0.85)'
+    /* 3 busbars prateadas verticais atravessando o módulo */
+    c.fillStyle = 'rgba(206,218,232,0.9)'
     for (let b = 1; b <= 3; b++) {
-      const x = ox + (w / (cols * cellW)) * 0 + (b * cols * cellW) / 4
-      c.fillRect(x - 1.5, oy, 3, rows * cellH)
+      const x = ox + (cols * cellW * b) / 4
+      c.fillRect(x - 1.5, oy + 2, 3, rows * cellH - 4)
     }
+    /* etiqueta técnica no canto (o detalhe que faz parecer painel de verdade) */
+    c.fillStyle = 'rgba(226,232,238,0.85)'
+    roundedRect(c, w - 76, h - 31, 60, 17, 3)
+    c.fill()
+    c.fillStyle = '#10151b'
+    c.fillRect(w - 71, h - 27, 34, 3)
+    c.fillRect(w - 71, h - 21, 47, 2)
+    c.fillRect(w - 71, h - 16, 29, 2)
   })
 
   /* --- versão emissiva (acende quando o sistema monta) --- */
   const panelGlow = makeTex(512, 400, (c, w, h) => {
-    c.fillStyle = '#02060d'
+    c.fillStyle = '#01040a'
     c.fillRect(0, 0, w, h)
     const ox = (w - cols * cellW) / 2
     const oy = (h - rows * cellH) / 2
@@ -246,17 +288,22 @@ function textures(): TexSet {
       for (let col = 0; col < cols; col++) {
         const x = ox + col * cellW
         const y = oy + r * cellH
-        const g = c.createLinearGradient(x, y, x, y + cellH)
-        g.addColorStop(0, '#0e2f4e')
-        g.addColorStop(1, '#1d5fae')
-        c.fillStyle = g
-        c.fillRect(x + 3, y + 3, cellW - 6, cellH - 6)
+        for (let half = 0; half < 2; half++) {
+          const hx = x + 2 + half * ((cellW - 4) / 2 + 1.5)
+          const hw = (cellW - 4) / 2 - 1.5
+          const g = c.createLinearGradient(hx, y, hx, y + cellH)
+          g.addColorStop(0, '#0d3555')
+          g.addColorStop(1, '#1f6fb8')
+          c.fillStyle = g
+          roundedRect(c, hx, y + 2, hw, cellH - 4, 3)
+          c.fill()
+        }
       }
     }
-    c.fillStyle = 'rgba(191,227,255,0.9)'
+    c.fillStyle = 'rgba(191,227,255,0.95)'
     for (let b = 1; b <= 3; b++) {
-      const x = ox + (b * cols * cellW) / 4
-      c.fillRect(x - 1.5, oy, 3, rows * cellH)
+      const x = ox + (cols * cellW * b) / 4
+      c.fillRect(x - 1.5, oy + 2, 3, rows * cellH - 4)
     }
   })
 
@@ -433,6 +480,12 @@ function World({ reduced }: { reduced: boolean }) {
     return s
   }, [])
 
+  /* CASA MAIOR sem pesar: escala ÚNICA aplicada num grupo que contém
+     fundação, paredes, telhado, chaminé, porta, janelas e medidor.
+     Escalar transform é de graça (zero mesh novo, zero byte no bundle).
+     Quer a casa maior/menor? Muda SÓ esse número (1.0 = tamanho antigo). */
+  const HOUSE_SCALE = 1.22
+
   useFrame(({ clock }, delta) => {
     const dt = Math.min(delta, 0.05)
     const t = clock.getElapsedTime()
@@ -535,6 +588,9 @@ function World({ reduced }: { reduced: boolean }) {
         <ringGeometry args={[4.55, 4.62, 64]} />
         <meshBasicMaterial color="#f7c54b" transparent opacity={0.16} />
       </mesh>
+
+      {/* ======= CONJUNTO DA CASA (escala única HOUSE_SCALE) ======= */}
+      <group scale={HOUSE_SCALE}>
 
       {/* fundação (esconde a base da parede na grama) */}
       <mesh castShadow receiveShadow position={[0, 0.11, 0]}>
@@ -652,8 +708,8 @@ function World({ reduced }: { reduced: boolean }) {
         </mesh>
       </group>
 
-      {/* árvore */}
-      <group position={[-2.55, 0, -0.9]}>
+      {/* árvore (dentro do conjunto: cresce junto pra manter a proporção da cena) */}
+      <group position={[-2.9, 0, -1.2]}>
         <mesh castShadow position={[0, 0.55, 0]}>
           <cylinderGeometry args={[0.09, 0.14, 1.1, 10]} />
           <meshStandardMaterial color="#4a3423" roughness={0.95} />
@@ -684,15 +740,18 @@ function World({ reduced }: { reduced: boolean }) {
         </mesh>
       </group>
 
-      {/* painéis: deitados na grama desde o hero, voam para o telhado quando o simulador chega */}
+      </group>{/* fim do conjunto da casa (HOUSE_SCALE) */}
+
+      {/* painéis: deitados na grama desde o hero, voam para o telhado quando o simulador chega
+          (roofPos multiplica pela MESMA HOUSE_SCALE pra pousar certinho no telhado novo) */}
       <PanelArray index={0} processRef={processRef} tex={tex}
-        roofPos={[-0.86, 2.77, 0.6]} roofTilt={0.58}
+        roofPos={[-0.86 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, 0.6 * HOUSE_SCALE]} roofTilt={0.58}
         groundPos={[-2.05, 0.16, 1.9]} groundTilt={0.14} groundYaw={0.35} />
       <PanelArray index={1} processRef={processRef} tex={tex}
-        roofPos={[0.86, 2.77, 0.6]} roofTilt={0.58}
+        roofPos={[0.86 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, 0.6 * HOUSE_SCALE]} roofTilt={0.58}
         groundPos={[0.15, 0.16, 2.15]} groundTilt={0.14} groundYaw={-0.28} />
       <PanelArray index={2} processRef={processRef} tex={tex}
-        roofPos={[0.9, 2.77, -0.6]} roofTilt={-0.58}
+        roofPos={[0.9 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, -0.6 * HOUSE_SCALE]} roofTilt={-0.58}
         groundPos={[1.65, 0.16, 1.8]} groundTilt={0.14} groundYaw={0.55} arc={1.75} />
 
       {/* sol viajante */}
@@ -724,13 +783,15 @@ function World({ reduced }: { reduced: boolean }) {
         shadow-normalBias={0.03}
       />
 
-      {/* fluxos de energia realinhados à nova cena */}
-      <FlowLine points={[[-3, 1.4, -2.4], [-1.2, 3.3, -1.2], [0, 3.06, 0]]} count={12}
+      {/* fluxos de energia realinhados à nova cena
+          (pontos que encostam na casa/ telhado acompanham a HOUSE_SCALE;
+          o ponto inicial de cada fio é o SOL, que não escala) */}
+      <FlowLine points={[[-3, 1.4, -2.4], [-1.2 * HOUSE_SCALE, 3.3 * HOUSE_SCALE, -1.2 * HOUSE_SCALE], [0, 3.06 * HOUSE_SCALE, 0]]} count={12}
         flow={() => 0.3 + journey.boost * 0.55 + clamp(journey.simulator, 0, 1) * 0.25} sunRef={sun} />
-      <FlowLine points={[[-3, 1.4, -2.4], [-1.6, 3.1, -0.5], [-0.86, 2.85, 0.55]]} flow={flowPanels} sunRef={sun} />
-      <FlowLine points={[[-3, 1.4, -2.4], [-0.8, 3.3, -1.4], [0.86, 2.85, 0.55]]} count={12}
+      <FlowLine points={[[-3, 1.4, -2.4], [-1.6 * HOUSE_SCALE, 3.1 * HOUSE_SCALE, -0.5 * HOUSE_SCALE], [-0.86 * HOUSE_SCALE, 2.85 * HOUSE_SCALE, 0.55 * HOUSE_SCALE]]} flow={flowPanels} sunRef={sun} />
+      <FlowLine points={[[-3, 1.4, -2.4], [-0.8 * HOUSE_SCALE, 3.3 * HOUSE_SCALE, -1.4 * HOUSE_SCALE], [0.86 * HOUSE_SCALE, 2.85 * HOUSE_SCALE, 0.55 * HOUSE_SCALE]]} count={12}
         flow={() => flowPanels() * 0.9} sunRef={sun} />
-      <FlowLine points={[[0.86, 2.5, 1.0], [1.8, 1.5, 0.85], [2.2, 0.95, 0.9]]} count={10}
+      <FlowLine points={[[0.86 * HOUSE_SCALE, 2.5 * HOUSE_SCALE, 1.0 * HOUSE_SCALE], [1.8 * HOUSE_SCALE, 1.5 * HOUSE_SCALE, 0.85 * HOUSE_SCALE], [2.2 * HOUSE_SCALE, 0.95 * HOUSE_SCALE, 0.9 * HOUSE_SCALE]]} count={10}
         flow={() => (flowPanels() > 0 ? 0.5 + clamp((journey.bill - 100) / 4900, 0, 1) * 0.9 + clamp(journey.simulator * 1.4, 0, 1) * 0.9 + journey.boost * 0.8 : 0)} />
 
       {/* nuvens (capítulo problema) */}
