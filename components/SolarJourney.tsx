@@ -41,7 +41,6 @@ const tapNDC: { current: null | { x: number; y: number; ok: boolean } } = { curr
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 const sm = (x: number) => { const t = clamp(x, 0, 1); return t * t * (3 - 2 * t) }
-const easeOutBack = (x: number) => { const c1 = 1.70158; return 1 + (c1 + 1) * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
 
 /* ============================================================
    TEXTURAS PROCEDURAIS (NÍVEL 2 — realista estilizado)
@@ -345,14 +344,21 @@ function Clouds() {
   </group>
 }
 
-/* ========================= PAINEL SOLAR PROFISSIONAL (montagem animada) =========================
+/* ========================= PAINEL SOLAR PROFISSIONAL (voo grama -> telhado) =========================
    Moldura de alumínio + módulo com textura de células (map + emissiveMap)
-   + vidro reflexivo. 1 draw call por módulo: leve no celular. */
-function PanelArray({ index, processRef, tilt, tex }: {
+   + vidro reflexivo. 1 draw call por módulo: leve no celular.
+   No hero os módulos ficam deitados na GRAMA (visíveis desde o 1º segundo);
+   no capítulo processo cada um voa em arco e encaixa na sua água do telhado. */
+function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, groundTilt, groundYaw, arc = 1.15 }: {
   index: number
   processRef: React.RefObject<number[]>
-  tilt: number
   tex: TexSet
+  roofPos: [number, number, number]
+  roofTilt: number
+  groundPos: [number, number, number]
+  groundTilt: number
+  groundYaw: number
+  arc?: number
 }) {
   const group = useRef<Group>(null)
   const modMat = useRef<MeshStandardMaterial>(null)
@@ -360,17 +366,20 @@ function PanelArray({ index, processRef, tilt, tex }: {
     const g = group.current
     if (!g) return
     const x = clamp(processRef.current[index] ?? 0, 0, 1)
-    const s = x <= 0.001 ? 0.0001 : easeOutBack(x)
-    g.visible = x > 0.001
-    g.scale.setScalar(Math.max(0.0001, s))
-    g.position.y = (1 - x) * 0.9
-    /* células acendem com o quadradinho da montagem (x²) e com interação */
+    const e = 1 - Math.pow(1 - x, 3) /* easeOutCubic */
+    g.position.set(
+      groundPos[0] + (roofPos[0] - groundPos[0]) * e,
+      groundPos[1] + (roofPos[1] - groundPos[1]) * e + Math.sin(e * Math.PI) * arc,
+      groundPos[2] + (roofPos[2] - groundPos[2]) * e,
+    )
+    g.rotation.x = groundTilt + (roofTilt - groundTilt) * e
+    g.rotation.y = groundYaw * (1 - e)
+    /* células acendem ao pousar no telhado (x²) e com interação */
     if (modMat.current) {
       modMat.current.emissiveIntensity = x * x * (0.4 + clamp(journey.simulator, 0, 1) * 0.6 + journey.boost * 0.8)
     }
   })
-  return <group ref={group}>
-    <group rotation={[tilt, 0, 0]}>
+  return <group ref={group} position={groundPos} rotation={[groundTilt, groundYaw, 0]}>
       {/* moldura de alumínio */}
       <mesh castShadow>
         <boxGeometry args={[1.78, 0.07, 1.42]} />
@@ -391,7 +400,6 @@ function PanelArray({ index, processRef, tilt, tex }: {
         <boxGeometry args={[1.6, 0.012, 1.24]} />
         <meshStandardMaterial color="#9fc8e8" transparent opacity={0.13} metalness={0.9} roughness={0.04} />
       </mesh>
-    </group>
   </group>
 }
 
@@ -662,10 +670,16 @@ function World({ reduced }: { reduced: boolean }) {
         </mesh>
       </group>
 
-      {/* painéis alinhados às águas do telhado */}
-      <group position={[-0.86, 2.77, 0.6]}><PanelArray index={0} processRef={processRef} tilt={0.58} tex={tex} /></group>
-      <group position={[0.86, 2.77, 0.6]}><PanelArray index={1} processRef={processRef} tilt={0.58} tex={tex} /></group>
-      <group position={[0.9, 2.77, -0.6]}><PanelArray index={2} processRef={processRef} tilt={-0.58} tex={tex} /></group>
+      {/* painéis: deitados na grama desde o hero, voam para o telhado no processo */}
+      <PanelArray index={0} processRef={processRef} tex={tex}
+        roofPos={[-0.86, 2.77, 0.6]} roofTilt={0.58}
+        groundPos={[-2.05, 0.16, 1.9]} groundTilt={0.14} groundYaw={0.35} />
+      <PanelArray index={1} processRef={processRef} tex={tex}
+        roofPos={[0.86, 2.77, 0.6]} roofTilt={0.58}
+        groundPos={[0.15, 0.16, 2.15]} groundTilt={0.14} groundYaw={-0.28} />
+      <PanelArray index={2} processRef={processRef} tex={tex}
+        roofPos={[0.9, 2.77, -0.6]} roofTilt={-0.58}
+        groundPos={[1.65, 0.16, 1.8]} groundTilt={0.14} groundYaw={0.55} arc={1.75} />
 
       {/* sol viajante */}
       <group ref={sun} position={[-3.2, 1.2, -2.4]}>
