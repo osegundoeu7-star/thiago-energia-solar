@@ -400,12 +400,15 @@ function Clouds() {
    Moldura de alumínio + módulo com textura de células (map + emissiveMap)
    + vidro reflexivo. 1 draw call por módulo: leve no celular.
    No hero os módulos ficam deitados na GRAMA (visíveis desde o 1º segundo);
-   no SIMULADOR (quando a cena volta a aparecer) cada um voa em arco e
-   encaixa na sua água do telhado — o .process tem fundo opaco, um voo lá
-   atrás aconteceria escondido e ninguém veria.
-   O voo é LENTO de propósito: cada placa leva ~35% do progresso do
-   simulador pra subir (janela 4x maior que a original) pra dar tempo
-   de acompanhar o arco inteiro — sobe, faz a curva e desce no telhado. */
+   no SIMULADOR (quando a cena volta a aparecer) cada um voa e
+   encaixa na sua água do telhado.
+   VOO EM DUAS FASES (corrige a placa atravessando a casa): antes o avanço
+   horizontal era linear junto com a subida — como o telhado sobe em direção
+   à cumeeira, a borda traseira da placa cortava a água do telhado no meio
+   do caminho (e a 3ª placa rasgava a chaminé). Agora: 1) CLIMB — sobe na
+   vertical quase no lugar; 2) GLIDE — só cruza depois de ganhar altura,
+   plana lá em cima e desce de boa no encaixe. Lento de propósito: cada
+   placa leva ~35% do progresso do simulador pra completar o percurso. */
 function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, groundTilt, groundYaw, arc = 1.35 }: {
   index: number
   processRef: React.RefObject<number[]>
@@ -424,10 +427,15 @@ function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, grou
     if (!g) return
     const x = clamp(processRef.current[index] ?? 0, 0, 1)
     const e = 1 - Math.pow(1 - x, 3) /* easeOutCubic */
+    /* fase 1 (climb): altura chega em ~30% do percurso, quase no lugar;
+       fase 2 (glide): avanço horizontal só depois de limpar a altura do
+       telhado — a placa nunca mais morde a água do telhado nem a chaminé. */
+    const climb = sm(clamp(e / 0.3, 0, 1))
+    const glide = sm(clamp((e - 0.22) / 0.78, 0, 1))
     g.position.set(
-      groundPos[0] + (roofPos[0] - groundPos[0]) * e,
-      groundPos[1] + (roofPos[1] - groundPos[1]) * e + Math.sin(e * Math.PI) * arc,
-      groundPos[2] + (roofPos[2] - groundPos[2]) * e,
+      groundPos[0] + (roofPos[0] - groundPos[0]) * glide,
+      groundPos[1] + (roofPos[1] - groundPos[1]) * climb + Math.sin(e * Math.PI) * arc * 0.5,
+      groundPos[2] + (roofPos[2] - groundPos[2]) * glide,
     )
     g.rotation.x = groundTilt + (roofTilt - groundTilt) * e
     g.rotation.y = groundYaw * (1 - e)
@@ -437,25 +445,26 @@ function PanelArray({ index, processRef, tex, roofPos, roofTilt, groundPos, grou
     }
   })
   return <group ref={group} position={groundPos} rotation={[groundTilt, groundYaw, 0]}>
-      {/* moldura de alumínio (mais clara e presente, igual ao preview) */}
+      {/* moldura de alumínio prateada (metais moderados: sem env map,
+         metalness alto demais fica preto — 0.45 mantém o prata vivo) */}
       <mesh castShadow>
         <boxGeometry args={[1.8, 0.09, 1.44]} />
-        <meshStandardMaterial color="#ccd3da" metalness={0.9} roughness={0.26} />
+        <meshStandardMaterial color="#d9dfe5" metalness={0.45} roughness={0.34} />
       </mesh>
       {/* módulo: face de cima (material-2 = +Y) leva map + emissiveMap */}
       <mesh castShadow position={[0, 0.018, 0]}>
         <boxGeometry args={[1.68, 0.035, 1.32]} />
         <meshStandardMaterial attach="material-0" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-1" color="#0a1420" roughness={0.55} metalness={0.35} />
-        <meshStandardMaterial attach="material-2" ref={modMat} map={tex.panel} emissiveMap={tex.panelGlow} emissive="#cfeaff" emissiveIntensity={0.3} roughness={0.3} metalness={0.5} />
+        <meshStandardMaterial attach="material-2" ref={modMat} map={tex.panel} emissiveMap={tex.panelGlow} emissive="#cfeaff" emissiveIntensity={0.3} roughness={0.26} metalness={0.18} />
         <meshStandardMaterial attach="material-3" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-4" color="#0a1420" roughness={0.55} metalness={0.35} />
         <meshStandardMaterial attach="material-5" color="#0a1420" roughness={0.55} metalness={0.35} />
       </mesh>
-      {/* vidro frontal reflexivo */}
+      {/* vidro frontal: véu fininho que pega o glint do sol sem esmaecer as células */}
       <mesh position={[0, 0.045, 0]}>
         <boxGeometry args={[1.62, 0.012, 1.26]} />
-        <meshStandardMaterial color="#9fc8e8" transparent opacity={0.17} metalness={0.9} roughness={0.04} />
+        <meshStandardMaterial color="#cfe6f7" transparent opacity={0.09} metalness={0.25} roughness={0.12} />
       </mesh>
   </group>
 }
@@ -767,7 +776,10 @@ function World({ reduced }: { reduced: boolean }) {
       </group>{/* fim do conjunto da casa (HOUSE_SCALE) */}
 
       {/* painéis: deitados na grama desde o hero, voam para o telhado quando o simulador chega
-          (roofPos multiplica pela MESMA HOUSE_SCALE pra pousar certinho no telhado novo) */}
+          (roofPos multiplica pela MESMA HOUSE_SCALE pra pousar certinho no telhado novo).
+          A 3ª placa pousa na água dos FUNDOS em x=-0.55: em x=0.9 ela atravessava a
+          chaminé (chaminé em x=1.15 ± 0.17, placa tem 1.8 de largura) — agora fica
+          livre de chaminé e de cumeeira, e o arco um pouco maior cobre o oitão. */}
       <PanelArray index={0} processRef={processRef} tex={tex}
         roofPos={[-0.86 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, 0.6 * HOUSE_SCALE]} roofTilt={0.58}
         groundPos={[-2.05, 0.16, 1.9]} groundTilt={0.14} groundYaw={0.35} />
@@ -775,8 +787,8 @@ function World({ reduced }: { reduced: boolean }) {
         roofPos={[0.86 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, 0.6 * HOUSE_SCALE]} roofTilt={0.58}
         groundPos={[0.15, 0.16, 2.15]} groundTilt={0.14} groundYaw={-0.28} />
       <PanelArray index={2} processRef={processRef} tex={tex}
-        roofPos={[0.9 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, -0.6 * HOUSE_SCALE]} roofTilt={-0.58}
-        groundPos={[1.65, 0.16, 1.8]} groundTilt={0.14} groundYaw={0.55} arc={1.75} />
+        roofPos={[-0.55 * HOUSE_SCALE, 2.77 * HOUSE_SCALE, -0.6 * HOUSE_SCALE]} roofTilt={-0.58}
+        groundPos={[1.65, 0.16, 1.8]} groundTilt={0.14} groundYaw={0.55} arc={1.9} />
 
       {/* sol viajante */}
       <group ref={sun} position={[-3.2, 1.2, -2.4]}>
